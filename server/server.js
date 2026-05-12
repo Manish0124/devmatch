@@ -48,10 +48,30 @@ io.on('connection', (socket) => {
 
   socket.on('sendMessage', (data) => {
     const { senderId, receiverId, message } = data;
-    io.to(connectedUsers[receiverId]).emit('receiveMessage', {
-      senderId,
-      message,
-    });
+    const targetSocket = connectedUsers[receiverId];
+    if (targetSocket) {
+      io.to(targetSocket).emit('receiveMessage', {
+        senderId,
+        message,
+        createdAt: new Date().toISOString(),
+      });
+    }
+  });
+
+  socket.on('typing', (data) => {
+    const { senderId, receiverId } = data;
+    const targetSocket = connectedUsers[receiverId];
+    if (targetSocket) {
+      io.to(targetSocket).emit('userTyping', { senderId });
+    }
+  });
+
+  socket.on('stopTyping', (data) => {
+    const { senderId, receiverId } = data;
+    const targetSocket = connectedUsers[receiverId];
+    if (targetSocket) {
+      io.to(targetSocket).emit('userStopTyping', { senderId });
+    }
   });
 
   socket.on('disconnect', () => {

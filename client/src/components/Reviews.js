@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api';
 import './Reviews.css';
 
 const Reviews = ({ userId }) => {
@@ -14,11 +14,12 @@ const Reviews = ({ userId }) => {
 
   useEffect(() => {
     fetchReviews();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   const fetchReviews = async () => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/reviews/${userId}`);
+      const response = await api.get(`/api/reviews/${userId}`);
       setReviews(response.data.reviews);
       setAvgRating(response.data.averageRating);
       setTotalReviews(response.data.totalReviews);
@@ -34,16 +35,11 @@ const Reviews = ({ userId }) => {
     setSubmitting(true);
 
     try {
-      const token = localStorage.getItem('token');
-      await axios.post(
-        'http://localhost:5000/api/reviews/create',
-        {
-          revieweeId: userId,
-          rating,
-          comment
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await api.post('/api/reviews/create', {
+        revieweeId: userId,
+        rating,
+        comment
+      });
 
       setRating(5);
       setComment('');
@@ -57,17 +53,22 @@ const Reviews = ({ userId }) => {
   };
 
   if (loading) {
-    return <div className="loading">Loading reviews...</div>;
+    return (
+      <div className="reviews-container">
+        <div className="loading-skeleton" style={{height: '20px', width: '40%', marginBottom: '16px'}}></div>
+        <div className="loading-skeleton" style={{height: '60px', marginBottom: '12px'}}></div>
+        <div className="loading-skeleton" style={{height: '60px'}}></div>
+      </div>
+    );
   }
 
   return (
-    <div className="reviews-container">
+    <div className="reviews-container" id={`reviews-${userId}`}>
       <div className="reviews-header">
-        <h3>Reviews & Ratings</h3>
         <div className="rating-summary">
-          <div className="rating-score">
+          <div className="rating-score-wrap">
             <span className="score">{avgRating}</span>
-            <span className="out-of">/5.0</span>
+            <span className="out-of">/5</span>
           </div>
           <div className="rating-stars">
             {[...Array(5)].map((_, i) => (
@@ -76,12 +77,12 @@ const Reviews = ({ userId }) => {
               </span>
             ))}
           </div>
-          <p className="review-count">({totalReviews} reviews)</p>
+          <p className="review-count">{totalReviews} review{totalReviews !== 1 ? 's' : ''}</p>
         </div>
 
         {!showForm && (
           <button className="leave-review-btn" onClick={() => setShowForm(true)}>
-            Leave a Review
+            + Add Review
           </button>
         )}
       </div>
@@ -115,7 +116,7 @@ const Reviews = ({ userId }) => {
 
           <div className="form-actions">
             <button type="submit" disabled={submitting} className="submit-btn">
-              {submitting ? 'Submitting...' : 'Submit Review'}
+              {submitting ? 'Submitting...' : 'Submit'}
             </button>
             <button 
               type="button" 
@@ -135,15 +136,21 @@ const Reviews = ({ userId }) => {
           reviews.map((review, idx) => (
             <div key={idx} className="review-item">
               <div className="review-header">
-                {review.reviewerId.profileImage && (
-                  <img 
-                    src={review.reviewerId.profileImage} 
-                    alt={review.reviewerId.name}
-                    className="reviewer-avatar"
-                  />
-                )}
+                <div className="reviewer-avatar-wrap">
+                  {review.reviewerId?.profileImage ? (
+                    <img 
+                      src={review.reviewerId.profileImage} 
+                      alt={review.reviewerId.name}
+                      className="reviewer-avatar"
+                    />
+                  ) : (
+                    <div className="reviewer-avatar-placeholder">
+                      {review.reviewerId?.name?.charAt(0).toUpperCase() || '?'}
+                    </div>
+                  )}
+                </div>
                 <div className="reviewer-info">
-                  <h4>{review.reviewerId.name}</h4>
+                  <h4>{review.reviewerId?.name || 'Anonymous'}</h4>
                   <div className="review-rating">
                     {[...Array(5)].map((_, i) => (
                       <span key={i} className={`star ${i < review.rating ? 'filled' : ''}`}>
@@ -152,11 +159,11 @@ const Reviews = ({ userId }) => {
                     ))}
                   </div>
                 </div>
+                <span className="review-date">
+                  {new Date(review.createdAt).toLocaleDateString()}
+                </span>
               </div>
               {review.comment && <p className="review-comment">{review.comment}</p>}
-              <span className="review-date">
-                {new Date(review.createdAt).toLocaleDateString()}
-              </span>
             </div>
           ))
         )}

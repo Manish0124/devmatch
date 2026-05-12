@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const Message = require('../models/Message');
 const authMiddleware = require('../middleware/auth');
 
@@ -43,10 +44,12 @@ router.get('/conversation/:userId', authMiddleware, async (req, res) => {
 // Get all conversations (with latest message)
 router.get('/conversations', authMiddleware, async (req, res) => {
   try {
+    const currentUserId = new mongoose.Types.ObjectId(req.userId);
+
     const messages = await Message.aggregate([
       {
         $match: {
-          $or: [{ senderId: req.userId }, { receiverId: req.userId }]
+          $or: [{ senderId: currentUserId }, { receiverId: currentUserId }]
         }
       },
       {
@@ -56,7 +59,7 @@ router.get('/conversations', authMiddleware, async (req, res) => {
         $group: {
           _id: {
             $cond: [
-              { $eq: ['$senderId', req.userId] },
+              { $eq: ['$senderId', currentUserId] },
               '$receiverId',
               '$senderId'
             ]

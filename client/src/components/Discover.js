@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api';
+import Reviews from './Reviews';
 import './Discover.css';
 
 const Discover = () => {
@@ -9,6 +10,7 @@ const Discover = () => {
   const [selectedSkills, setSelectedSkills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [allSkills, setAllSkills] = useState([]);
+  const [expandedUser, setExpandedUser] = useState(null);
 
   useEffect(() => {
     fetchUsers();
@@ -16,14 +18,12 @@ const Discover = () => {
 
   useEffect(() => {
     filterUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [users, searchTerm, selectedSkills]);
 
   const fetchUsers = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/users/users', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get('/api/users/users');
       setUsers(response.data);
 
       // Extract all unique skills
@@ -43,7 +43,6 @@ const Discover = () => {
   const filterUsers = () => {
     let filtered = users;
 
-    // Filter by search term
     if (searchTerm) {
       filtered = filtered.filter(user =>
         user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -52,7 +51,6 @@ const Discover = () => {
       );
     }
 
-    // Filter by selected skills
     if (selectedSkills.length > 0) {
       filtered = filtered.filter(user =>
         selectedSkills.some(skill => user.skills?.includes(skill))
@@ -76,42 +74,69 @@ const Discover = () => {
   };
 
   if (loading) {
-    return <div className="loading">Loading developers...</div>;
+    return (
+      <div className="discover-container" id="discover-loading">
+        <div className="filters-panel">
+          <div className="loading-skeleton" style={{height: '24px', width: '60%', marginBottom: '20px'}}></div>
+          <div className="loading-skeleton" style={{height: '40px', marginBottom: '20px'}}></div>
+          <div className="loading-skeleton" style={{height: '200px'}}></div>
+        </div>
+        <div className="results-panel">
+          <div className="developers-grid">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="developer-card" style={{padding: '24px'}}>
+                <div className="loading-skeleton" style={{height: '48px', width: '48px', borderRadius: '12px', marginBottom: '16px'}}></div>
+                <div className="loading-skeleton" style={{height: '20px', width: '60%', marginBottom: '8px'}}></div>
+                <div className="loading-skeleton" style={{height: '16px', width: '80%', marginBottom: '16px'}}></div>
+                <div style={{display: 'flex', gap: '8px'}}>
+                  <div className="loading-skeleton" style={{height: '28px', width: '60px', borderRadius: '14px'}}></div>
+                  <div className="loading-skeleton" style={{height: '28px', width: '80px', borderRadius: '14px'}}></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="discover-container">
+    <div className="discover-container" id="discover-page">
       <div className="filters-panel">
-        <h3>Filter Developers</h3>
+        <h3>🔍 Filter</h3>
 
         <div className="search-box">
           <input
             type="text"
-            placeholder="Search by name, location, or bio..."
+            placeholder="Search developers..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input"
+            id="discover-search"
           />
         </div>
 
-        <div className="skills-filter">
-          <h4>Skills</h4>
-          <div className="skills-list">
-            {allSkills.map(skill => (
-              <label key={skill} className="skill-checkbox">
-                <input
-                  type="checkbox"
-                  checked={selectedSkills.includes(skill)}
-                  onChange={() => handleSkillToggle(skill)}
-                />
-                <span>{skill}</span>
-              </label>
-            ))}
+        {allSkills.length > 0 && (
+          <div className="skills-filter">
+            <h4>Skills</h4>
+            <div className="skills-list">
+              {allSkills.map(skill => (
+                <label key={skill} className="skill-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={selectedSkills.includes(skill)}
+                    onChange={() => handleSkillToggle(skill)}
+                  />
+                  <span className="checkbox-custom"></span>
+                  <span>{skill}</span>
+                </label>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {(searchTerm || selectedSkills.length > 0) && (
-          <button className="clear-btn" onClick={clearFilters}>
+          <button className="clear-btn" onClick={clearFilters} id="clear-filters">
             Clear Filters
           </button>
         )}
@@ -119,69 +144,92 @@ const Discover = () => {
 
       <div className="results-panel">
         <div className="results-header">
-          <h2>Discovered Developers ({filteredUsers.length})</h2>
+          <h2>Developers</h2>
+          <span className="results-count">{filteredUsers.length} found</span>
         </div>
 
         {filteredUsers.length === 0 ? (
           <div className="no-results">
-            <p>No developers match your criteria. Try adjusting your filters.</p>
+            <span className="empty-icon">🔎</span>
+            <p>No developers match your criteria.</p>
+            <p className="hint">Try adjusting your filters</p>
           </div>
         ) : (
           <div className="developers-grid">
             {filteredUsers.map(user => (
               <div key={user._id} className="developer-card">
-                {user.profileImage && (
-                  <img src={user.profileImage} alt={user.name} className="dev-image" />
+                <div className="dev-header">
+                  {user.profileImage ? (
+                    <img src={user.profileImage} alt={user.name} className="dev-avatar" />
+                  ) : (
+                    <div className="dev-avatar-placeholder">
+                      {user.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="dev-info">
+                    <h3>{user.name}</h3>
+                    {user.location && (
+                      <p className="dev-location">📍 {user.location}</p>
+                    )}
+                  </div>
+                  {user.averageRating > 0 && (
+                    <div className="dev-rating">
+                      <span className="star">★</span> {user.averageRating.toFixed(1)}
+                    </div>
+                  )}
+                </div>
+
+                {user.bio && (
+                  <p className="dev-bio">{user.bio}</p>
                 )}
 
-                <div className="dev-content">
-                  <h3>{user.name}</h3>
+                {user.skills && user.skills.length > 0 && (
+                  <div className="dev-tags">
+                    {user.skills.slice(0, 4).map((skill, idx) => (
+                      <span key={idx} className="tag skill-tag">{skill}</span>
+                    ))}
+                    {user.skills.length > 4 && (
+                      <span className="tag more-tag">+{user.skills.length - 4}</span>
+                    )}
+                  </div>
+                )}
 
-                  {user.location && (
-                    <p className="dev-location">📍 {user.location}</p>
-                  )}
+                {user.interests && user.interests.length > 0 && (
+                  <div className="dev-tags">
+                    {user.interests.slice(0, 3).map((interest, idx) => (
+                      <span key={idx} className="tag interest-tag">{interest}</span>
+                    ))}
+                  </div>
+                )}
 
-                  {user.bio && (
-                    <p className="dev-bio">{user.bio}</p>
-                  )}
-
-                  {user.skills && user.skills.length > 0 && (
-                    <div className="dev-skills">
-                      <h4>Skills</h4>
-                      <div className="skills-tags">
-                        {user.skills.map((skill, idx) => (
-                          <span key={idx} className="skill-tag">{skill}</span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {user.interests && user.interests.length > 0 && (
-                    <div className="dev-interests">
-                      <h4>Interests</h4>
-                      <div className="interests-tags">
-                        {user.interests.map((interest, idx) => (
-                          <span key={idx} className="interest-tag">{interest}</span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
+                <div className="dev-footer">
                   {(user.github || user.linkedin) && (
                     <div className="dev-links">
                       {user.github && (
                         <a href={user.github} target="_blank" rel="noopener noreferrer" className="link-btn">
-                          GitHub
+                          GitHub ↗
                         </a>
                       )}
                       {user.linkedin && (
                         <a href={user.linkedin} target="_blank" rel="noopener noreferrer" className="link-btn">
-                          LinkedIn
+                          LinkedIn ↗
                         </a>
                       )}
                     </div>
                   )}
+                  <button
+                    className="reviews-toggle-btn"
+                    onClick={() => setExpandedUser(expandedUser === user._id ? null : user._id)}
+                  >
+                    {expandedUser === user._id ? 'Hide Reviews' : 'Reviews'}
+                  </button>
                 </div>
+
+                {expandedUser === user._id && (
+                  <div className="dev-reviews-section">
+                    <Reviews userId={user._id} />
+                  </div>
+                )}
               </div>
             ))}
           </div>

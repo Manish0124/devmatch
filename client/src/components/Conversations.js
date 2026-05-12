@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api';
 import Chat from './Chat';
 import './Conversations.css';
 
@@ -14,10 +14,7 @@ const Conversations = () => {
 
   const fetchConversations = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/messages/conversations', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get('/api/messages/conversations');
       setConversations(response.data);
       setLoading(false);
     } catch (error) {
@@ -27,36 +24,76 @@ const Conversations = () => {
   };
 
   if (loading) {
-    return <div className="loading">Loading conversations...</div>;
+    return (
+      <div className="conversations-container">
+        <div className="conversations-wrapper">
+          <div className="conversations-list">
+            <div className="conv-list-header">
+              <h2>Messages</h2>
+            </div>
+            {[1, 2, 3].map(i => (
+              <div key={i} className="conversation-item" style={{pointerEvents: 'none'}}>
+                <div className="loading-skeleton" style={{width: '48px', height: '48px', borderRadius: '50%', flexShrink: 0}}></div>
+                <div className="conv-info" style={{flex: 1}}>
+                  <div className="loading-skeleton" style={{height: '14px', width: '60%', marginBottom: '8px'}}></div>
+                  <div className="loading-skeleton" style={{height: '12px', width: '80%'}}></div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="no-conversation-selected">
+            <div className="empty-chat-state">
+              <span className="empty-icon">💬</span>
+              <p>Select a conversation</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="conversations-container">
+    <div className="conversations-container" id="conversations-page">
       <div className="conversations-wrapper">
         <div className="conversations-list">
-          <h2>Messages</h2>
-          {conversations.length === 0 ? (
-            <p className="no-conversations">No conversations yet</p>
-          ) : (
-            conversations.map((conv) => (
-              <div
-                key={conv.userId}
-                className={`conversation-item ${selectedUser?.userId === conv.userId ? 'active' : ''}`}
-                onClick={() => setSelectedUser(conv)}
-              >
-                {conv.profileImage && (
-                  <img src={conv.profileImage} alt={conv.name} className="conv-avatar" />
-                )}
-                <div className="conv-info">
-                  <h4>{conv.name}</h4>
-                  <p className="last-message">{conv.lastMessage}</p>
+          <div className="conv-list-header">
+            <h2>Messages</h2>
+            <span className="conv-count">{conversations.length}</span>
+          </div>
+          <div className="conv-list-body">
+            {conversations.length === 0 ? (
+              <div className="no-conversations">
+                <span>💬</span>
+                <p>No conversations yet</p>
+                <p className="hint">Match with developers to start chatting</p>
+              </div>
+            ) : (
+              conversations.map((conv) => (
+                <div
+                  key={conv.userId}
+                  className={`conversation-item ${selectedUser?.userId === conv.userId ? 'active' : ''}`}
+                  onClick={() => setSelectedUser(conv)}
+                >
+                  <div className="conv-avatar-wrap">
+                    {conv.profileImage ? (
+                      <img src={conv.profileImage} alt={conv.name} className="conv-avatar" />
+                    ) : (
+                      <div className="conv-avatar-placeholder">
+                        {conv.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <div className="conv-info">
+                    <h4>{conv.name}</h4>
+                    <p className="last-message">{conv.lastMessage}</p>
+                  </div>
                   <span className="conv-time">
                     {new Date(conv.lastMessageTime).toLocaleDateString()}
                   </span>
                 </div>
-              </div>
-            ))
-          )}
+              ))
+            )}
+          </div>
         </div>
 
         {selectedUser ? (
@@ -66,7 +103,10 @@ const Conversations = () => {
           />
         ) : (
           <div className="no-conversation-selected">
-            <p>Select a conversation to start messaging</p>
+            <div className="empty-chat-state">
+              <span className="empty-icon">💬</span>
+              <p>Select a conversation to start messaging</p>
+            </div>
           </div>
         )}
       </div>

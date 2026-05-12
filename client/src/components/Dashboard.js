@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api';
 import './Dashboard.css';
 
 const Dashboard = () => {
   const [users, setUsers] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [showMatch, setShowMatch] = useState(false);
+  const [matchedUser, setMatchedUser] = useState(null);
+  const [swipeDirection, setSwipeDirection] = useState(null);
 
   useEffect(() => {
     fetchUsers();
@@ -13,10 +16,7 @@ const Dashboard = () => {
 
   const fetchUsers = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/users/users', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get('/api/users/users');
       setUsers(response.data);
       setLoading(false);
     } catch (error) {
@@ -26,29 +26,66 @@ const Dashboard = () => {
   };
 
   const handleSwipe = async (liked) => {
-    const token = localStorage.getItem('token');
-    const swipedUserId = users[currentIndex]._id;
+    if (currentIndex >= users.length) return;
+
+    const swipedUser = users[currentIndex];
+    setSwipeDirection(liked ? 'right' : 'left');
 
     try {
-      await axios.post('http://localhost:5000/api/matches/swipe', 
-        { swipedUserId, liked },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      setCurrentIndex(currentIndex + 1);
+      const response = await api.post('/api/matches/swipe', {
+        swipedUserId: swipedUser._id,
+        liked,
+      });
+
+      // Check for mutual match
+      if (response.data.isMatch) {
+        setMatchedUser(swipedUser);
+        setShowMatch(true);
+      }
     } catch (error) {
       console.error('Error swiping:', error);
     }
+
+    setTimeout(() => {
+      setCurrentIndex(prev => prev + 1);
+      setSwipeDirection(null);
+    }, 300);
   };
 
-  if (loading) return <div className="loading">Loading...</div>;
+  const closeMatchModal = () => {
+    setShowMatch(false);
+    setMatchedUser(null);
+  };
+
+  if (loading) {
+    return (
+      <div className="dashboard-container">
+        <div className="card-container">
+          <div className="user-card skeleton-card">
+            <div className="skeleton-header loading-skeleton"></div>
+            <div className="skeleton-body">
+              <div className="skeleton-line loading-skeleton" style={{width: '60%'}}></div>
+              <div className="skeleton-line loading-skeleton" style={{width: '80%'}}></div>
+              <div className="skeleton-line loading-skeleton" style={{width: '40%'}}></div>
+              <div className="skeleton-tags">
+                <div className="skeleton-tag loading-skeleton"></div>
+                <div className="skeleton-tag loading-skeleton"></div>
+                <div className="skeleton-tag loading-skeleton"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (currentIndex >= users.length) {
     return (
-      <div className="dashboard-container">
+      <div className="dashboard-container" id="dashboard-empty">
         <div className="no-users">
-          <h2>No more developers to discover</h2>
-          <p>Check back later for new matches!</p>
+          <div className="empty-icon">🔍</div>
+          <h2>No more developers</h2>
+          <p>You've seen everyone for now. Check back later for new profiles!</p>
         </div>
       </div>
     );
@@ -57,23 +94,42 @@ const Dashboard = () => {
   const currentUser = users[currentIndex];
 
   return (
-    <div className="dashboard-container">
+    <div className="dashboard-container" id="dashboard-page">
+      <div className="dashboard-header">
+        <h2>Find your match</h2>
+        <span className="card-counter">{currentIndex + 1} / {users.length}</span>
+      </div>
+
       <div className="card-container">
-        <div className="user-card">
+        <div className={`user-card ${swipeDirection ? `swipe-${swipeDirection}` : ''}`}>
           <div className="card-header">
-            <h2>{currentUser.name}</h2>
-            <p className="location">{currentUser.location || 'Not specified'}</p>
+            <div className="card-avatar">
+              {currentUser.profileImage ? (
+                <img src={currentUser.profileImage} alt={currentUser.name} />
+              ) : (
+                <div className="avatar-placeholder">
+                  {currentUser.name.charAt(0).toUpperCase()}
+                </div>
+              )}
+            </div>
+            <div className="card-title">
+              <h2>{currentUser.name}</h2>
+              <p className="location">
+                {currentUser.location ? `📍 ${currentUser.location}` : '🌍 Location not set'}
+              </p>
+            </div>
+            {currentUser.averageRating > 0 && (
+              <div className="card-rating">
+                <span className="star">★</span>
+                <span>{currentUser.averageRating.toFixed(1)}</span>
+              </div>
+            )}
           </div>
-          
-          {currentUser.profileImage && (
-            <img src={currentUser.profileImage} alt={currentUser.name} className="profile-image" />
-          )}
           
           <div className="card-content">
             {currentUser.bio && (
               <div className="section">
-                <h3>About</h3>
-                <p>{currentUser.bio}</p>
+                <p className="bio-text">{currentUser.bio}</p>
               </div>
             )}
             
@@ -82,7 +138,7 @@ const Dashboard = () => {
                 <h3>Skills</h3>
                 <div className="tags">
                   {currentUser.skills.map((skill, idx) => (
-                    <span key={idx} className="tag">{skill}</span>
+                    <span key={idx} className="tag skill-tag">{skill}</span>
                   ))}
                 </div>
               </div>
@@ -93,37 +149,80 @@ const Dashboard = () => {
                 <h3>Interests</h3>
                 <div className="tags">
                   {currentUser.interests.map((interest, idx) => (
-                    <span key={idx} className="tag interest">{interest}</span>
+                    <span key={idx} className="tag interest-tag">{interest}</span>
                   ))}
                 </div>
               </div>
             )}
             
             {(currentUser.github || currentUser.linkedin) && (
-              <div className="section">
-                <h3>Connect</h3>
-                <div className="links">
-                  {currentUser.github && (
-                    <a href={currentUser.github} target="_blank" rel="noopener noreferrer">GitHub</a>
-                  )}
-                  {currentUser.linkedin && (
-                    <a href={currentUser.linkedin} target="_blank" rel="noopener noreferrer">LinkedIn</a>
-                  )}
-                </div>
+              <div className="section social-links">
+                {currentUser.github && (
+                  <a href={currentUser.github} target="_blank" rel="noopener noreferrer" className="social-btn">
+                    GitHub ↗
+                  </a>
+                )}
+                {currentUser.linkedin && (
+                  <a href={currentUser.linkedin} target="_blank" rel="noopener noreferrer" className="social-btn">
+                    LinkedIn ↗
+                  </a>
+                )}
               </div>
             )}
           </div>
 
           <div className="action-buttons">
-            <button className="pass-btn" onClick={() => handleSwipe(false)}>
-              ✕ Pass
+            <button className="pass-btn" onClick={() => handleSwipe(false)} id="swipe-pass">
+              <span className="btn-icon">✕</span>
+              Pass
             </button>
-            <button className="like-btn" onClick={() => handleSwipe(true)}>
-              ❤ Like
+            <button className="like-btn" onClick={() => handleSwipe(true)} id="swipe-like">
+              <span className="btn-icon">❤</span>
+              Like
             </button>
           </div>
         </div>
       </div>
+
+      {/* Match Celebration Modal */}
+      {showMatch && matchedUser && (
+        <div className="match-overlay" onClick={closeMatchModal}>
+          <div className="match-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="match-particles">
+              {[...Array(12)].map((_, i) => (
+                <div key={i} className="particle" style={{
+                  '--delay': `${i * 0.1}s`,
+                  '--angle': `${i * 30}deg`,
+                }}></div>
+              ))}
+            </div>
+            <div className="match-content">
+              <h2 className="match-title">It's a Match! 🎉</h2>
+              <p className="match-text">You and <strong>{matchedUser.name}</strong> liked each other</p>
+              <div className="match-avatar">
+                {matchedUser.profileImage ? (
+                  <img src={matchedUser.profileImage} alt={matchedUser.name} />
+                ) : (
+                  <div className="match-avatar-placeholder">
+                    {matchedUser.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </div>
+              <div className="match-actions">
+                <button className="match-message-btn" onClick={() => {
+                  closeMatchModal();
+                  window.location.href = '/messages';
+                }}>
+                  Send Message
+                </button>
+                <button className="match-continue-btn" onClick={closeMatchModal}>
+                  Keep Swiping
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
 import io from 'socket.io-client';
+import api, { API_BASE_URL } from '../api';
 import './Chat.css';
 
 const Chat = ({ selectedUserId, selectedUserName }) => {
@@ -20,6 +20,7 @@ const Chat = ({ selectedUserId, selectedUserName }) => {
         socketRef.current.disconnect();
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedUserId]);
 
   useEffect(() => {
@@ -28,33 +29,30 @@ const Chat = ({ selectedUserId, selectedUserName }) => {
 
   const initializeSocket = () => {
     const token = localStorage.getItem('token');
-    const userId = localStorage.getItem('user')
-      ? JSON.parse(localStorage.getItem('user')).id
-      : null;
+    const userStr = localStorage.getItem('user');
+    const userId = userStr ? JSON.parse(userStr).id : null;
 
-    socketRef.current = io('http://localhost:5000', {
+    socketRef.current = io(API_BASE_URL, {
       query: { token }
     });
 
     socketRef.current.emit('join', userId);
 
     socketRef.current.on('receiveMessage', (data) => {
-      setMessages(prev => [...prev, {
-        senderId: data.senderId,
-        receiverId: userId,
-        message: data.message,
-        createdAt: new Date().toISOString()
-      }]);
+      if (data.senderId === selectedUserId) {
+        setMessages(prev => [...prev, {
+          senderId: { _id: data.senderId },
+          receiverId: userId,
+          message: data.message,
+          createdAt: data.createdAt || new Date().toISOString()
+        }]);
+      }
     });
   };
 
   const fetchMessages = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(
-        `http://localhost:5000/api/messages/conversation/${selectedUserId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const response = await api.get(`/api/messages/conversation/${selectedUserId}`);
       setMessages(response.data);
       setLoading(false);
     } catch (error) {
@@ -68,23 +66,18 @@ const Chat = ({ selectedUserId, selectedUserName }) => {
     if (!newMessage.trim() || sending) return;
 
     setSending(true);
-    const userId = JSON.parse(localStorage.getItem('user')).id;
+    const userStr = localStorage.getItem('user');
+    const userId = userStr ? JSON.parse(userStr).id : null;
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post(
-        'http://localhost:5000/api/messages/send',
-        {
-          receiverId: selectedUserId,
-          message: newMessage
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const response = await api.post('/api/messages/send', {
+        receiverId: selectedUserId,
+        message: newMessage
+      });
 
       setMessages(prev => [...prev, response.data]);
       setNewMessage('');
 
-      // Also emit via socket for real-time delivery
       if (socketRef.current) {
         socketRef.current.emit('sendMessage', {
           senderId: userId,
@@ -103,30 +96,61 @@ const Chat = ({ selectedUserId, selectedUserName }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Helper to get sender ID from either populated object or plain string
+  const getSenderId = (msg) => {
+    if (msg.senderId && typeof msg.senderId === 'object') {
+      return msg.senderId._id;
+    }
+    return msg.senderId;
+  };
+
   if (loading) {
-    return <div className="chat-loading">Loading messages...</div>;
+    return (
+      <div className="chat-container">
+        <div className="chat-header">
+          <h3>{selectedUserName}</h3>
+        </div>
+        <div className="messages-list">
+          <div className="chat-loading-state">
+            <div className="loading-skeleton" style={{width: '60%', height: '36px', borderRadius: '12px', alignSelf: 'flex-start', marginBottom: '12px'}}></div>
+            <div className="loading-skeleton" style={{width: '45%', height: '36px', borderRadius: '12px', alignSelf: 'flex-end', marginBottom: '12px'}}></div>
+            <div className="loading-skeleton" style={{width: '55%', height: '36px', borderRadius: '12px', alignSelf: 'flex-start'}}></div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
-  const userId = JSON.parse(localStorage.getItem('user')).id;
+  const userStr = localStorage.getItem('user');
+  const userId = userStr ? JSON.parse(userStr).id : null;
 
   return (
-    <div className="chat-container">
+    <div className="chat-container" id="chat-container">
       <div className="chat-header">
-        <h3>{selectedUserName}</h3>
+        <div className="chat-header-avatar">
+          {selectedUserName.charAt(0).toUpperCase()}
+        </div>
+        <div className="chat-header-info">
+          <h3>{selectedUserName}</h3>
+          <span className="online-status">Online</span>
+        </div>
       </div>
 
       <div className="messages-list">
         {messages.length === 0 ? (
-          <div className="no-messages">No messages yet. Start the conversation!</div>
+          <div className="no-messages">
+            <span>👋</span>
+            <p>No messages yet. Say hello!</p>
+          </div>
         ) : (
           messages.map((msg, idx) => (
             <div
               key={idx}
-              className={`message ${msg.senderId === userId ? 'sent' : 'received'}`}
+              className={`message ${getSenderId(msg) === userId ? 'sent' : 'received'}`}
             >
               <p className="message-text">{msg.message}</p>
               <span className="message-time">
-                {new Date(msg.createdAt).toLocaleTimeString()}
+                {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>
           ))
@@ -139,12 +163,13 @@ const Chat = ({ selectedUserId, selectedUserName }) => {
           type="text"
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
-          placeholder="Type your message..."
+          placeholder="Type a message..."
           disabled={sending}
           className="message-input"
+          id="message-input"
         />
-        <button type="submit" disabled={sending} className="send-btn">
-          {sending ? 'Sending...' : 'Send'}
+        <button type="submit" disabled={sending || !newMessage.trim()} className="send-btn" id="send-message-btn">
+          {sending ? '...' : '↑'}
         </button>
       </form>
     </div>

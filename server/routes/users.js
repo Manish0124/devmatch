@@ -1,5 +1,6 @@
 const express = require('express');
 const User = require('../models/User');
+const Match = require('../models/Match');
 const authMiddleware = require('../middleware/auth');
 
 const router = express.Router();
@@ -31,10 +32,18 @@ router.put('/profile', authMiddleware, async (req, res) => {
   }
 });
 
-// Get all users for swiping (except current user)
+// Get all users for swiping (exclude current user and already-swiped users)
 router.get('/users', authMiddleware, async (req, res) => {
   try {
-    const users = await User.find({ _id: { $ne: req.userId } }).select('-password');
+    // Find all users already swiped by current user
+    const swipedMatches = await Match.find({ userId: req.userId });
+    const swipedUserIds = swipedMatches.map(m => m.swipedUserId);
+
+    // Exclude current user and already-swiped users
+    const users = await User.find({
+      _id: { $ne: req.userId, $nin: swipedUserIds }
+    }).select('-password');
+
     res.json(users);
   } catch (error) {
     res.status(500).json({ message: error.message });
