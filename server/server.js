@@ -14,19 +14,39 @@ const reviewRoutes = require('./routes/reviews');
 
 const app = express();
 const server = http.createServer(app);
+
+// CORS configuration — allow the frontend origin in production
+const allowedOrigins = [
+  process.env.CLIENT_URL || 'http://localhost:3000',
+  'http://localhost:3000',
+].filter(Boolean);
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow all origins in current phase
+    }
+  },
+  credentials: true,
+}));
+
+app.use(express.json());
+
 const io = socketIo(server, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
-    methods: ["GET", "POST"]
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
+    credentials: true,
   }
 });
 
-app.use(cors());
-app.use(express.json());
-
 // Routes
 app.get('/', (req, res) => {
-  res.send('DevMatch Server Running');
+  res.json({ status: 'ok', message: 'DevMatch API Running', version: '1.0.0' });
 });
 
 app.use('/api/auth', authRoutes);
@@ -86,7 +106,7 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 5000;
-mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.connect(process.env.MONGO_URI)
   .then(() => {
     server.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
