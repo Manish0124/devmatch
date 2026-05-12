@@ -9,6 +9,8 @@ require('dotenv').config();
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const matchRoutes = require('./routes/matches');
+const messageRoutes = require('./routes/messages');
+const reviewRoutes = require('./routes/reviews');
 
 const app = express();
 const server = http.createServer(app);
@@ -30,6 +32,8 @@ app.get('/', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/matches', matchRoutes);
+app.use('/api/messages', messageRoutes);
+app.use('/api/reviews', reviewRoutes);
 
 // Socket.io for real-time chat
 const connectedUsers = {};

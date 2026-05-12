@@ -6,6 +6,8 @@ import Home from './components/Home';
 import Login from './components/Login';
 import Register from './components/Register';
 import Dashboard from './components/Dashboard';
+import Discover from './components/Discover';
+import Conversations from './components/Conversations';
 import Profile from './components/Profile';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
@@ -24,6 +26,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/discover"
+            element={
+              <ProtectedRoute>
+                <Discover />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/messages"
+            element={
+              <ProtectedRoute>
+                <Conversations />
               </ProtectedRoute>
             }
           />

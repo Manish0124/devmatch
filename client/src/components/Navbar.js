@@ -23,7 +23,13 @@ const Navbar = () => {
           {user ? (
             <>
               <Link to="/dashboard" className="nav-link">
+                Match
+              </Link>
+              <Link to="/discover" className="nav-link">
                 Discover
+              </Link>
+              <Link to="/messages" className="nav-link">
+                Messages
               </Link>
               <Link to="/profile" className="nav-link">
                 Profile

@@ -22,6 +22,14 @@ const userSchema = new mongoose.Schema({
   location: String,
   github: String,
   linkedin: String,
+  averageRating: {
+    type: Number,
+    default: 0,
+  },
+  totalReviews: {
+    type: Number,
+    default: 0,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
