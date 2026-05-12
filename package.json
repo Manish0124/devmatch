@@ -1,0 +1,26 @@
+{
+  "name": "devmatch",
+  "version": "1.0.0",
+  "description": "A Developer Matching & Collaboration Platform",
+  "private": true,
+  "scripts": {
+    "install-all": "npm install && cd client && npm install && cd ../server && npm install",
+    "start": "concurrently \"cd server && npm run dev\" \"cd client && npm start\"",
+    "dev": "concurrently \"cd server && npm run dev\" \"cd client && npm start\"",
+    "server": "cd server && npm run dev",
+    "client": "cd client && npm start"
+  },
+  "keywords": [
+    "mern",
+    "developer",
+    "matching",
+    "collaboration",
+    "socket.io",
+    "mongodb"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
